@@ -31,11 +31,17 @@ public interface DiagLibrary extends Library {
 
     int diag_log_stream_config(int client_id, int set_mask, short[] log_codes_array, int num_codes);
 
+    int diag_send_dci_async_req(int client_id, byte[] request, int request_len, ByteBuffer response, int response_len, process_response response_handler, Pointer voidPtr1);
+
     public interface process_dci_log_stream extends Callback {
         void apply(Pointer buffer, int length);
     }
 
     public interface process_dci_event_stream extends Callback {
         void apply(Pointer buffer, int length);
+    }
+
+    public interface process_response extends Callback {
+        void apply(Pointer buffer, int len, Pointer data);
     }
 }

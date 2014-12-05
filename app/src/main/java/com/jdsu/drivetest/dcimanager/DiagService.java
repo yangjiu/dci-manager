@@ -12,6 +12,7 @@ import com.sun.jna.Pointer;
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
 import java.nio.ShortBuffer;
+import java.util.Arrays;
 
 public class DiagService extends Service {
 
@@ -23,6 +24,12 @@ public class DiagService extends Service {
             short recordLength = logRecord.getShort(0);
             short logcodeType = logRecord.getShort(2);
             Log.i(TAG, "received log type 0x" + Integer.toHexString(logcodeType & 0xFFFF) + " length " + recordLength);
+        }
+    };
+    private DiagLibrary.process_response responseHandler = new DiagLibrary.process_response() {
+        @Override
+        public void apply(Pointer buffer, int len, Pointer data) {
+            Log.i(TAG, "received response " + Arrays.toString(buffer.getByteArray(0, len)));
         }
     };
     private IntBuffer client_id;
@@ -75,6 +82,15 @@ public class DiagService extends Service {
             Log.e(TAG, "failed to register dci streams result code " + result);
             return;
         }
+
+        byte[] request = {75, 18, 0, 0, 1, 0, 0, 0, 16, 1, 1, 0, 0, 1, 0, 0, (byte) 232, 3, 0, 0, 1, 0, 0, 0};
+        ByteBuffer response = ByteBuffer.allocate(100);
+        result = DiagLibrary.INSTANCE.diag_send_dci_async_req(client_id.get(0), request, 24, response, 100, responseHandler, Pointer.NULL);
+        if (result != 1001) {
+            Log.e(TAG, "failed to send async request result code " + result);
+            return;
+        }
+
         short[] log_codes_array = {0x5072, 0x115F, 0x12E8, 0x119B, 0x11AF, 0x14C8, 0x1375};
         result = DiagLibrary.INSTANCE.diag_log_stream_config(client_id.get(0), 1, log_codes_array, 7);
         if (result != 1001) {
