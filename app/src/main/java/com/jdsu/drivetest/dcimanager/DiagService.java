@@ -5,12 +5,8 @@ import android.content.Intent;
 import android.os.IBinder;
 import android.util.Log;
 
-import com.jdsu.drivetest.diag.CLibrary;
 import com.jdsu.drivetest.diag.DiagLibrary;
-import com.jdsu.drivetest.diag.sigaction;
-import com.jdsu.drivetest.diag.siginfo;
 import com.sun.jna.Memory;
-import com.sun.jna.NativeLong;
 import com.sun.jna.Pointer;
 
 import java.nio.ByteBuffer;
@@ -43,8 +39,6 @@ public class DiagService extends Service {
 
         }
     };
-    private sigaction connectionNotification = new sigaction();
-    private sigaction dataNotification = new sigaction();
 
     public DiagService() {
     }
@@ -58,16 +52,6 @@ public class DiagService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
-
-        connectionNotification._u._sa_sigaction = new sigaction._u_union._sa_sigaction_callback() {
-            @Override
-            public void apply(int int1, siginfo siginfoPtr1, Pointer voidPtr1) {
-
-            }
-        };
-        connectionNotification.sa_flags = new NativeLong(CLibrary.SA_SIGINFO);
-
-
         int result = DiagLibrary.INSTANCE.Diag_LSM_Init(ByteBuffer.allocate(0));
         Log.i(TAG, "LSM initialization result code " + result);
         client_id = IntBuffer.allocate(1);
@@ -81,6 +65,7 @@ public class DiagService extends Service {
             return;
         }
         Log.i(TAG, "Register DCI client successfully, client id " + client_id.get(0));
+
 
         ShortBuffer list = ShortBuffer.allocate(1);
         result = DiagLibrary.INSTANCE.diag_get_dci_support_list(list);
