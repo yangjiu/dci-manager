@@ -17,23 +17,25 @@ import java.util.Arrays;
 public class DiagService extends Service {
 
     private static final String TAG = DiagService.class.getName();
-    private DiagLibrary.process_dci_log_stream logHandler = new DiagLibrary.process_dci_log_stream() {
+    private DiagLibrary.diag_register_dci_stream_func_ptr_logs_callback logHandler = new DiagLibrary.diag_register_dci_stream_func_ptr_logs_callback() {
+
         @Override
-        public void apply(Pointer buffer, int length) {
-            ByteBuffer logRecord = buffer.getByteBuffer(0, length);
+        public void apply(Pointer ptr, int len) {
+            ByteBuffer logRecord = ptr.getByteBuffer(0, len);
             short recordLength = logRecord.getShort(0);
             short logcodeType = logRecord.getShort(2);
-            Log.i(TAG, "received log type 0x" + Integer.toHexString(logcodeType & 0xFFFF) + " length " + recordLength);
+            Log.i(TAG, "received log type 0x" + Integer.toHexString(logcodeType & 0xFFFF) + " length " + recordLength + " " + Arrays.toString(ptr.getByteArray(0, len)));
         }
     };
-    private DiagLibrary.process_response responseHandler = new DiagLibrary.process_response() {
+    private DiagLibrary.diag_send_dci_async_req_func_ptr_callback responseHandler = new DiagLibrary.diag_send_dci_async_req_func_ptr_callback() {
+
         @Override
-        public void apply(Pointer buffer, int len, Pointer data) {
-            Log.i(TAG, "received response " + Arrays.toString(buffer.getByteArray(0, len)));
+        public void apply(Pointer ptr, int len, Pointer data_ptr) {
+            Log.i(TAG, "received response " + Arrays.toString(ptr.getByteArray(0, len)));
         }
     };
     private IntBuffer client_id;
-    private DiagLibrary.process_dci_event_stream eventHandler = new DiagLibrary.process_dci_event_stream() {
+    private DiagLibrary.diag_register_dci_stream_func_ptr_events_callback eventHandler = new DiagLibrary.diag_register_dci_stream_func_ptr_events_callback() {
         @Override
         public void apply(Pointer buffer, int length) {
 
@@ -56,11 +58,11 @@ public class DiagService extends Service {
         Log.i(TAG, "LSM initialization result code " + result);
         client_id = IntBuffer.allocate(1);
         ShortBuffer peripherals = ShortBuffer.allocate(1);
-        peripherals.put((short) 0x0002);
+        peripherals.put((short) DiagLibrary.DIAG_CON_MPSS);
         Memory os_param = new Memory(4);
         os_param.setInt(0, 18);
         result = DiagLibrary.INSTANCE.diag_register_dci_client(client_id, peripherals, 0, os_param);
-        if (result != 1001) {
+        if (result != DiagLibrary.diag_dci_error_type_enum.DIAG_DCI_NO_ERROR) {
             Log.e(TAG, "Failed to register DCI client result code " + result);
             return;
         }
@@ -69,7 +71,7 @@ public class DiagService extends Service {
 
         ShortBuffer list = ShortBuffer.allocate(1);
         result = DiagLibrary.INSTANCE.diag_get_dci_support_list(list);
-        if (result != 1001) {
+        if (result != DiagLibrary.diag_dci_error_type_enum.DIAG_DCI_NO_ERROR) {
             Log.e(TAG, "failed to get supported list, result code " + result);
             return;
         }
@@ -79,22 +81,22 @@ public class DiagService extends Service {
         Log.i(TAG, "WCNSS Status: " + ((list.get(0) & 0x0008) == 8 ? "Up" : "Down"));
 
         result = DiagLibrary.INSTANCE.diag_register_dci_stream(logHandler, eventHandler);
-        if (result != 1001) {
+        if (result != DiagLibrary.diag_dci_error_type_enum.DIAG_DCI_NO_ERROR) {
             Log.e(TAG, "failed to register dci streams result code " + result);
             return;
         }
 
-        byte[] request = {75, 18, 0, 0, 1, 0, 0, 0, 16, 1, 1, 0, 0, 1, 0, 0, (byte) 232, 3, 0, 0, 1, 0, 0, 0};
+        ByteBuffer request = ByteBuffer.wrap(new byte[]{75, 18, 0, 0, 1, 0, 0, 0, 16, 1, 1, 0, 0, 1, 0, 0, (byte) 232, 3, 0, 0, 1, 0, 0, 0});
         ByteBuffer response = ByteBuffer.allocate(100);
         result = DiagLibrary.INSTANCE.diag_send_dci_async_req(client_id.get(0), request, 24, response, 100, responseHandler, Pointer.NULL);
-        if (result != 1001) {
+        if (result != DiagLibrary.diag_dci_error_type_enum.DIAG_DCI_NO_ERROR) {
             Log.e(TAG, "failed to send async request result code " + result);
             return;
         }
 
-        short[] log_codes_array = {0x5072, 0x115F, 0x12E8, 0x119B, 0x11AF, 0x14C8, 0x1375};
-        result = DiagLibrary.INSTANCE.diag_log_stream_config(client_id.get(0), 1, log_codes_array, 7);
-        if (result != 1001) {
+        ShortBuffer log_codes_array = ShortBuffer.wrap(new short[]{0x5072, 0x115F, 0x12E8, 0x119B, 0x11AF, 0x14C8, 0x1375});
+        result = DiagLibrary.INSTANCE.diag_log_stream_config(client_id.get(0), DiagLibrary.ENABLE, log_codes_array, 7);
+        if (result != DiagLibrary.diag_dci_error_type_enum.DIAG_DCI_NO_ERROR) {
             Log.e(TAG, "failed to config log streams result code " + result);
             return;
         }
