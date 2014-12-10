@@ -1,0 +1,16 @@
+-Iandroid-ndk-r10c/platforms/android-19/arch-arm/usr/include
+-Idiag/include
+-Idiag/src
+-o diag_output
+-v
+-arch armeabi
+-mode Directory
+-package com.jdsu.drivetest.diag
+-runtime JNA
+-library diag
+diag/include/diag_lsm_dci.h
+diag/include/diag_lsm.h
+-library c
+android-ndk-r10c/platforms/android-19/arch-arm/usr/include/asm-generic/siginfo.h
+android-ndk-r10c/platforms/android-19/arch-arm/usr/include/asm/signal.h
+android-ndk-r10c/platforms/android-19/arch-arm/usr/include/signal.h
