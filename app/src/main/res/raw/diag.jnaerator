@@ -1,4 +1,4 @@
--Iandroid-ndk-r10c/platforms/android-19/arch-arm/usr/include
+-Iandroid-ndk-r10d/platforms/android-19/arch-arm/usr/include
 -Idiag/include
 -Idiag/src
 -o diag_output
@@ -11,6 +11,6 @@
 diag/include/diag_lsm_dci.h
 diag/include/diag_lsm.h
 -library c
-android-ndk-r10c/platforms/android-19/arch-arm/usr/include/asm-generic/siginfo.h
-android-ndk-r10c/platforms/android-19/arch-arm/usr/include/asm/signal.h
-android-ndk-r10c/platforms/android-19/arch-arm/usr/include/signal.h
+android-ndk-r10d/platforms/android-19/arch-arm/usr/include/asm-generic/siginfo.h
+android-ndk-r10d/platforms/android-19/arch-arm/usr/include/asm/signal.h
+android-ndk-r10d/platforms/android-19/arch-arm/usr/include/signal.h
