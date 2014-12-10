@@ -5,9 +5,13 @@ import android.content.Intent;
 import android.os.IBinder;
 import android.util.Log;
 
+import com.jdsu.drivetest.diag.CLibrary;
 import com.jdsu.drivetest.diag.DiagLibrary;
-import com.sun.jna.Memory;
+import com.jdsu.drivetest.diag.sigaction;
+import com.jdsu.drivetest.diag.siginfo;
+import com.sun.jna.NativeLong;
 import com.sun.jna.Pointer;
+import com.sun.jna.ptr.IntByReference;
 
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
@@ -41,6 +45,7 @@ public class DiagService extends Service {
 
         }
     };
+    private sigaction conn_notify_action;
 
     public DiagService() {
     }
@@ -54,14 +59,33 @@ public class DiagService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
+
+        conn_notify_action = new sigaction(new sigaction._u_union(new sigaction._u_union._sa_sigaction_callback() {
+            @Override
+            public void apply(int int1, siginfo siginfoPtr1, Pointer voidPtr1) {
+                siginfoPtr1._sifields.setType(siginfo._sifields_union._rt_struct.class);
+                siginfoPtr1.read();
+                int data = siginfoPtr1._sifields._rt._sigval.sival_int;
+                Log.i(TAG, "Status change of DCI channel is received with data " + Integer.toHexString(data));
+
+                if ((data & DiagLibrary.DIAG_CON_MPSS) == DiagLibrary.DIAG_CON_MPSS) {
+                    if ((data & DiagLibrary.DIAG_STATUS_CLOSED) == DiagLibrary.DIAG_STATUS_CLOSED) {
+                        Log.i(TAG, "DCI channel to MPSS has just closed");
+                    } else if ((data & DiagLibrary.DIAG_STATUS_OPEN) == DiagLibrary.DIAG_STATUS_OPEN) {
+                        Log.i(TAG, "DCI channel to MPSS has just been opened");
+                    }
+                }
+
+            }
+        }), new NativeLong(0), new NativeLong(CLibrary.SA_SIGINFO), null);
+        CLibrary.INSTANCE.sigaction(CLibrary.SIGCONT, conn_notify_action, conn_notify_action);
+
         int result = DiagLibrary.INSTANCE.Diag_LSM_Init(ByteBuffer.allocate(0));
         Log.i(TAG, "LSM initialization result code " + result);
         client_id = IntBuffer.allocate(1);
         ShortBuffer peripherals = ShortBuffer.allocate(1);
         peripherals.put((short) DiagLibrary.DIAG_CON_MPSS);
-        Memory os_param = new Memory(4);
-        os_param.setInt(0, 18);
-        result = DiagLibrary.INSTANCE.diag_register_dci_client(client_id, peripherals, 0, os_param);
+        result = DiagLibrary.INSTANCE.diag_register_dci_client(client_id, peripherals, 0, new IntByReference(CLibrary.SIGCONT).getPointer());
         if (result != DiagLibrary.diag_dci_error_type_enum.DIAG_DCI_NO_ERROR) {
             Log.e(TAG, "Failed to register DCI client result code " + result);
             return;
