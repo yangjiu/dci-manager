@@ -16,7 +16,11 @@ import com.sun.jna.ptr.IntByReference;
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
 import java.nio.ShortBuffer;
+import java.text.SimpleDateFormat;
 import java.util.Arrays;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.TimeZone;
 
 public class DiagService extends Service {
 
@@ -26,9 +30,11 @@ public class DiagService extends Service {
         @Override
         public void apply(Pointer ptr, int len) {
             ByteBuffer logRecord = ptr.getByteBuffer(0, len);
-            short recordLength = logRecord.getShort(0);
             short logcodeType = logRecord.getShort(2);
-            Log.i(TAG, "received log type 0x" + Integer.toHexString(logcodeType & 0xFFFF) + " length " + recordLength + " " + Arrays.toString(ptr.getByteArray(0, len)));
+            long dmssTimestamp = logRecord.getLong(4);
+            SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS z");
+            String birthday = dateFormat.format(new Date(convertModemTimestampToEpoch(dmssTimestamp)));
+            Log.i(TAG, "received log type 0x" + Integer.toHexString(logcodeType & 0xFFFF) + " born " + birthday + " " + Arrays.toString(ptr.getByteArray(0, len)));
         }
     };
     private DiagLibrary.diag_send_dci_async_req_func_ptr_callback responseHandler = new DiagLibrary.diag_send_dci_async_req_func_ptr_callback() {
@@ -38,6 +44,32 @@ public class DiagService extends Service {
             Log.i(TAG, "received response " + Arrays.toString(ptr.getByteArray(0, len)));
         }
     };
+    private sigaction connectionNotifyAction = new sigaction(new sigaction._u_union(new sigaction._u_union._sa_sigaction_callback() {
+        @Override
+        public void apply(int int1, siginfo siginfoPtr1, Pointer voidPtr1) {
+            siginfoPtr1._sifields.setType(siginfo._sifields_union._rt_struct.class);
+            siginfoPtr1.read();
+            int data = siginfoPtr1._sifields._rt._sigval.sival_int;
+            Log.i(TAG, "Status change of DCI channel is received with data " + Integer.toHexString(data));
+
+            if ((data & DiagLibrary.DIAG_CON_MPSS) == DiagLibrary.DIAG_CON_MPSS) {
+                if ((data & DiagLibrary.DIAG_STATUS_CLOSED) == DiagLibrary.DIAG_STATUS_CLOSED) {
+                    Log.i(TAG, "DCI channel to MPSS has just closed");
+                } else if ((data & DiagLibrary.DIAG_STATUS_OPEN) == DiagLibrary.DIAG_STATUS_OPEN) {
+                    Log.i(TAG, "DCI channel to MPSS has just been opened");
+                }
+            }
+
+        }
+    }), new NativeLong(0), new NativeLong(CLibrary.SA_SIGINFO), null);
+    private static long GPS_ZERO_TIME_IN_MILLIS;
+
+    static {
+        Calendar gpsZeroCalendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
+        gpsZeroCalendar.set(1980, Calendar.JANUARY, 6, 0, 0, 0);
+        GPS_ZERO_TIME_IN_MILLIS = gpsZeroCalendar.getTimeInMillis();
+    }
+
     private IntBuffer client_id;
     private DiagLibrary.diag_register_dci_stream_func_ptr_events_callback eventHandler = new DiagLibrary.diag_register_dci_stream_func_ptr_events_callback() {
         @Override
@@ -45,7 +77,6 @@ public class DiagService extends Service {
 
         }
     };
-    private sigaction conn_notify_action;
 
     public DiagService() {
     }
@@ -59,27 +90,7 @@ public class DiagService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
-
-        conn_notify_action = new sigaction(new sigaction._u_union(new sigaction._u_union._sa_sigaction_callback() {
-            @Override
-            public void apply(int int1, siginfo siginfoPtr1, Pointer voidPtr1) {
-                siginfoPtr1._sifields.setType(siginfo._sifields_union._rt_struct.class);
-                siginfoPtr1.read();
-                int data = siginfoPtr1._sifields._rt._sigval.sival_int;
-                Log.i(TAG, "Status change of DCI channel is received with data " + Integer.toHexString(data));
-
-                if ((data & DiagLibrary.DIAG_CON_MPSS) == DiagLibrary.DIAG_CON_MPSS) {
-                    if ((data & DiagLibrary.DIAG_STATUS_CLOSED) == DiagLibrary.DIAG_STATUS_CLOSED) {
-                        Log.i(TAG, "DCI channel to MPSS has just closed");
-                    } else if ((data & DiagLibrary.DIAG_STATUS_OPEN) == DiagLibrary.DIAG_STATUS_OPEN) {
-                        Log.i(TAG, "DCI channel to MPSS has just been opened");
-                    }
-                }
-
-            }
-        }), new NativeLong(0), new NativeLong(CLibrary.SA_SIGINFO), null);
-        CLibrary.INSTANCE.sigaction(CLibrary.SIGCONT, conn_notify_action, conn_notify_action);
-
+        //CLibrary.INSTANCE.sigaction(CLibrary.SIGCONT, connectionNotifyAction, connectionNotifyAction);
         int result = DiagLibrary.INSTANCE.Diag_LSM_Init(ByteBuffer.allocate(0));
         Log.i(TAG, "LSM initialization result code " + result);
         client_id = IntBuffer.allocate(1);
@@ -110,9 +121,10 @@ public class DiagService extends Service {
             return;
         }
 
-        ByteBuffer request = ByteBuffer.wrap(new byte[]{75, 18, 0, 0, 1, 0, 0, 0, 16, 1, 1, 0, 0, 1, 0, 0, (byte) 232, 3, 0, 0, 1, 0, 0, 0});
+        //check the version of the modem software
+        ByteBuffer request = ByteBuffer.wrap(new byte[]{0});
         ByteBuffer response = ByteBuffer.allocate(100);
-        result = DiagLibrary.INSTANCE.diag_send_dci_async_req(client_id.get(0), request, 24, response, 100, responseHandler, Pointer.NULL);
+        result = DiagLibrary.INSTANCE.diag_send_dci_async_req(client_id.get(0), request, 1, response, 100, responseHandler, Pointer.NULL);
         if (result != DiagLibrary.diag_dci_error_type_enum.DIAG_DCI_NO_ERROR) {
             Log.e(TAG, "failed to send async request result code " + result);
             return;
@@ -129,9 +141,18 @@ public class DiagService extends Service {
     @Override
     public void onDestroy() {
         super.onDestroy();
-        int result = DiagLibrary.INSTANCE.diag_release_dci_client(client_id);
+        int result;
+        DiagLibrary.INSTANCE.diag_disable_all_logs(client_id.get(0));
+        result = DiagLibrary.INSTANCE.diag_release_dci_client(client_id);
         Log.i(TAG, "release DCI client result code " + result);
         result = DiagLibrary.INSTANCE.Diag_LSM_DeInit();
         Log.i(TAG, "LSM deinitialization result code " + result);
+    }
+
+    private long convertModemTimestampToEpoch(long modemTimestamp) {
+        long counter = modemTimestamp >>> 16;
+        double millisFromGPSZero = counter * 1.25d;
+        double logTimestampInMillis = GPS_ZERO_TIME_IN_MILLIS + millisFromGPSZero;
+        return (long) logTimestampInMillis;
     }
 }
