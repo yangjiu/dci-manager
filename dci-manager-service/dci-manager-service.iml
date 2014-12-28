@@ -87,7 +87,7 @@
     <orderEntry type="library" exported="" name="jna-4.1.0" level="project" />
     <orderEntry type="library" exported="" name="jnaerator-runtime-0.12-SNAPSHOT" level="project" />
     <orderEntry type="library" exported="" name="RootTools" level="project" />
-    <orderEntry type="module" module-name="dci-manager-api" exported="" />
+    <orderEntry type="module" module-name="DCI-manager-api" exported="" />
   </component>
 </module>
 
