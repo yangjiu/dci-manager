@@ -9,8 +9,8 @@
         <option name="modules">
           <set>
             <option value="$PROJECT_DIR$" />
-            <option value="$PROJECT_DIR$/DCI-manager-api" />
-            <option value="$PROJECT_DIR$/DCI-manager-service" />
+            <option value="$PROJECT_DIR$/dci-manager-api" />
+            <option value="$PROJECT_DIR$/dci-manager-service" />
           </set>
         </option>
       </GradleProjectSettings>

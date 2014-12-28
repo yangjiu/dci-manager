@@ -1,1 +1,1 @@
-include ':DCI-manager-service', ':DCI-manager-api'
+include 'dci-manager-api', 'dci-manager-service'
