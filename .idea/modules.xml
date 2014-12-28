@@ -2,8 +2,8 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/DCIManager.iml" filepath="$PROJECT_DIR$/DCIManager.iml" />
-      <module fileurl="file://$PROJECT_DIR$/app/app.iml" filepath="$PROJECT_DIR$/app/app.iml" />
+      <module fileurl="file://$PROJECT_DIR$/DCI-manager-api/DCI-manager-api.iml" filepath="$PROJECT_DIR$/DCI-manager-api/DCI-manager-api.iml" />
+      <module fileurl="file://$PROJECT_DIR$/DCI-manager-service/DCI-manager-service.iml" filepath="$PROJECT_DIR$/DCI-manager-service/DCI-manager-service.iml" />
       <module fileurl="file://$PROJECT_DIR$/dci-manager.iml" filepath="$PROJECT_DIR$/dci-manager.iml" />
     </modules>
   </component>
